@@ -57,6 +57,7 @@
   let saveTimer = null;
   let channel = null;
   let lastSavedJson = '';
+  let conflictPending = false;
 
   const setAuthUI = signedIn => {
     emailInput.disabled = signedIn;
@@ -89,6 +90,7 @@
       render();
       renderGroups();
       lastSavedJson = JSON.stringify(state);
+      conflictPending = false;
       syncEnabled = true;
       say('Загружено из облака · ' + new Date(updatedAt || Date.now()).toLocaleString('ru-RU'));
     } finally { applyingCloud = false; }
@@ -140,7 +142,9 @@
         const localJson = JSON.stringify(state);
         const localDirty = (!!lastSavedJson && localJson !== lastSavedJson) || !!saveTimer;
         if (localDirty) {
-          say('На другом устройстве изменили расписание, но здесь есть свои изменения. Локальная копия не перезаписана. После сохранения локальных изменений можно вручную загрузить облачную копию.');
+          if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+          conflictPending = true;
+          say('На другом устройстве изменили расписание, и здесь тоже есть свои изменения. Автосохранение приостановлено, локальная копия не перезаписана. Выберите: загрузить облачную копию или заменить её текущими данными.');
           return;
         }
         applyCloudData(row.data, row.updated_at);
@@ -148,7 +152,7 @@
   }
 
   window.cloudPersist = nextState => {
-    if (!user || !syncEnabled || applyingCloud) return;
+    if (!user || !syncEnabled || applyingCloud || conflictPending) return;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
       const snapshot = JSON.parse(JSON.stringify(nextState));
@@ -167,6 +171,7 @@
       const row = await getCloudRow();
       if (!row) throw new Error('В облаке пока нет резервной копии.');
       applyCloudData(row.data, row.updated_at);
+      conflictPending = false;
       say('Синхронизация включена. Изменения будут передаваться автоматически.');
     } catch (error) { say('Не удалось загрузить копию: ' + (error.message || error)); }
     finally { pullButton.disabled = false; }
@@ -176,7 +181,7 @@
     if (!user) return;
     if (!confirm('Сохранить текущее расписание этого устройства в облако? Если там уже есть данные, они будут заменены. Перед продолжением скачайте резервную копию.')) return;
     pushButton.disabled = true;
-    try { await uploadLocalState(); subscribe(); }
+    try { await uploadLocalState(); conflictPending = false; subscribe(); }
     catch (error) { say('Не удалось отправить данные: ' + (error.message || error)); }
     finally { pushButton.disabled = false; }
   };
