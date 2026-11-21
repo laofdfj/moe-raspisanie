@@ -1,0 +1,12 @@
+{
+  "name": "Моё расписание",
+  "short_name": "Расписание",
+  "description": "Расписание занятий, событий и учёт оплаты",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#82b7b5",
+  "theme_color": "#82b7b5",
+  "orientation": "any"
+}
