@@ -134,9 +134,15 @@
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_schedules',
         filter: 'user_id=eq.' + user.id }, payload => {
         const row = payload.new;
-        if (!row || !row.data) return;
-        if (JSON.stringify(row.data) === lastSavedJson) return;
-        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+        if (!row || !row.data || !syncEnabled) return;
+        const incomingJson = JSON.stringify(row.data);
+        if (incomingJson === lastSavedJson) return;
+        const localJson = JSON.stringify(state);
+        const localDirty = (!!lastSavedJson && localJson !== lastSavedJson) || !!saveTimer;
+        if (localDirty) {
+          say('На другом устройстве изменили расписание, но здесь есть свои изменения. Локальная копия не перезаписана. После сохранения локальных изменений можно вручную загрузить облачную копию.');
+          return;
+        }
         applyCloudData(row.data, row.updated_at);
       }).subscribe();
   }
