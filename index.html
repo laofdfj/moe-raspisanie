@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#82b7b5"><title>Моё расписание</title><link rel="manifest" href="./manifest.json"><style>body{margin:0;background:#82b7b5;color:#292b1c;font:16px system-ui;display:grid;place-items:center;min-height:100vh}.load{background:#f8f1e6;padding:24px 28px;border-radius:24px;max-width:300px;text-align:center}b{font-size:22px}</style></head>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#82b7b5"><title>Моё расписание</title><link rel="manifest" href="./manifest.json"><style>body{margin:0;background:#82b8b8;color:#292b1c;font:16px system-ui;display:grid;place-items:center;min-height:100vh}.load{background:#f8f1e6;padding:24px 28px;border-radius:24px;max-width:300px;text-align:center}b{font-size:22px}</style></head>
 <body><div class="load"><b>Моё расписание</b><p id="status">Загружаю приложение…</p></div>
 <script>
 (async()=>{
@@ -10,6 +10,21 @@
   const stream=response.body.pipeThrough(new DecompressionStream("gzip"));
   const html=await new Response(stream).text();
   document.open();document.write(html);document.close();
+  const config=document.createElement("script");
+  config.src="./cloud-config.js";
+  config.onload=()=>{
+   const sdk=document.createElement("script");
+   sdk.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+   sdk.onload=()=>{
+    const cloud=document.createElement("script");
+    cloud.src="./cloud.js";
+    document.body.appendChild(cloud);
+   };
+   sdk.onerror=()=>{const s=document.getElementById("cloudStatus");if(s)s.textContent="Не удалось загрузить модуль облака. Локальное расписание продолжает работать."};
+   document.body.appendChild(sdk);
+  };
+  config.onerror=()=>{const s=document.getElementById("cloudStatus");if(s)s.textContent="Не найден файл настроек облака cloud-config.js."};
+  document.body.appendChild(config);
  }catch(error){document.getElementById("status").textContent=error.message+" Перезагрузите страницу."}
 })();
 </script></body></html>
