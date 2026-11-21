@@ -57,7 +57,45 @@
   let saveTimer = null;
   let channel = null;
   let lastSavedJson = '';
+
   let conflictPending = false;
+
+  function askSyncChoice({ title, message, choices }) {
+    return new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0008;display:grid;place-items:center;padding:18px';
+      const dialog = document.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      dialog.setAttribute('aria-modal', 'true');
+      dialog.style.cssText = 'background:#f8f1e6;color:#292b1c;border-radius:18px;padding:22px;max-width:440px;width:100%;box-shadow:0 12px 40px #0004;font:16px system-ui';
+      const heading = document.createElement('h3');
+      heading.textContent = title;
+      heading.style.margin = '0 0 10px';
+      const description = document.createElement('p');
+      description.textContent = message;
+      description.style.cssText = 'line-height:1.45;margin:0 0 18px';
+      const actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end';
+      choices.forEach(choice => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = choice.label;
+        button.style.cssText = 'padding:10px 13px;border:0;border-radius:10px;cursor:pointer';
+        if (choice.primary) button.style.background = '#82b7b5';
+        else button.style.background = '#e8dfd2';
+        button.onclick = () => { overlay.remove(); resolve(choice.value); };
+        actions.appendChild(button);
+      });
+      dialog.append(heading, description, actions);
+      overlay.appendChild(dialog);
+      overlay.addEventListener('click', event => {
+        if (event.target === overlay) { overlay.remove(); resolve('later'); }
+      });
+      document.body.appendChild(overlay);
+      const first = actions.querySelector('button');
+      if (first) first.focus();
+    });
+  }
 
   const setAuthUI = signedIn => {
     emailInput.disabled = signedIn;
@@ -116,14 +154,46 @@
     try {
       const row = await getCloudRow();
       if (row) {
-        say('В облаке уже есть расписание (обновлено ' + new Date(row.updated_at).toLocaleString('ru-RU') + '). Выберите, какую копию оставить.');
         pullButton.textContent = 'Загрузить копию из облака';
         pushButton.textContent = 'Заменить облачную копию текущими данными';
         pullButton.disabled = false;
+        const choice = await askSyncChoice({
+          title: 'Найдено расписание в облаке',
+          message: 'Облачная копия обновлена ' + new Date(row.updated_at).toLocaleString('ru-RU') + '. Что сделать? Выбор определит, какая версия станет общей для всех устройств.',
+          choices: [
+            { label: 'Загрузить из облака', value: 'cloud', primary: true },
+            { label: 'Перенести текущее в облако', value: 'local' },
+            { label: 'Решить позже', value: 'later' }
+          ]
+        });
+        if (choice === 'cloud') {
+          applyCloudData(row.data, row.updated_at);
+          subscribe();
+        } else if (choice === 'local') {
+          await uploadLocalState();
+          subscribe();
+        } else {
+          syncEnabled = false;
+          say('Синхронизация пока приостановлена. Выберите версию в настройках, когда будете готовы.');
+        }
       } else {
-        say('Облачная копия пока пустая. Если это первое устройство, отправьте в облако текущее расписание.');
         pullButton.disabled = true;
         pushButton.textContent = 'Загрузить текущее расписание в облако';
+        const choice = await askSyncChoice({
+          title: 'Перенести расписание в облако?',
+          message: 'В облаке пока нет расписания. Перенести туда текущую версию с этого устройства? После этого изменения будут синхронизироваться автоматически.',
+          choices: [
+            { label: 'Перенести в облако', value: 'local', primary: true },
+            { label: 'Не сейчас', value: 'later' }
+          ]
+        });
+        if (choice === 'local') {
+          await uploadLocalState();
+          subscribe();
+        } else {
+          syncEnabled = false;
+          say('Расписание осталось только на этом устройстве. Подключите синхронизацию позже в настройках.');
+        }
       }
     } catch (error) {
       say('Ошибка доступа к облаку: ' + (error.message || error));
