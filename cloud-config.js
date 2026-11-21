@@ -1,6 +1,6 @@
-// Укажи Project URL и publishable/anon key из Supabase.
+// Публичный publishable key Supabase предназначен для клиентского приложения.
 // Никогда не добавляй сюда service_role key.
 window.SCHEDULE_CLOUD_CONFIG = {
-  url: 'https://YOUR_PROJECT.supabase.co',
-  anonKey: 'YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY'
+  url: 'https://czeunwghggzktveitzei.supabase.co',
+  anonKey: 'sb_publishable_Nnt2RbsspMZaD4QihBxgSA_AyjjD8a6'
 };
